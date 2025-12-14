@@ -1,0 +1,19 @@
+body { font-family: Arial, sans-serif; margin: 2rem; background: #f7f9fc; }
+.container { max-width: 960px; margin: 0 auto; }
+h1 { color: #2c3e50; }
+#messages { list-style: none; padding: 0; }
+#messages li { padding: 0.6rem 0.75rem; border-bottom: 1px solid #eee; }
+form { margin-top: 1rem; }
+input { padding: 0.5rem; }
+button { padding: 0.5rem; }
+
+/* Card tweaks */
+.card { border-radius: 0.6rem; }
+
+/* Table tweaks */
+.table th, .table td { vertical-align: middle; }
+
+/* Small responsive spacing */
+@media (max-width: 576px) {
+  .container { padding-left: 1rem; padding-right: 1rem; }
+}
