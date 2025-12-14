@@ -33,14 +33,27 @@ public class Main {
                 case "list":
                     gm.getStudents().forEach(s -> System.out.println(s));
                     return;
+                case "remove-student":
+                    if (args.length < 2) { System.err.println("Usage: remove-student <id>"); System.exit(2); }
+                    boolean removed = gm.removeStudent(args[1]);
+                    if (removed) {
+                        fh.saveToFile(dataFile, gm.getStudents());
+                        System.out.println("Removed and saved");
+                    } else {
+                        System.out.println("Not found");
+                    }
+                    return;
                 case "add-student":
                     if (args.length < 3) { System.err.println("Usage: add-student <studentId> <name>"); System.exit(2); }
                     gm.addStudent(new Student(args[1], args[2]));
-                    System.out.println("Added");
+                    fh.saveToFile(dataFile, gm.getStudents());
+                    System.out.println("Added and saved");
                     return;
                 case "add-grade":
                     if (args.length < 4) { System.err.println("Usage: add-grade <studentId> <subject> <grade>"); System.exit(2); }
                     gm.findById(args[1]).ifPresentOrElse(st -> { st.addGrade(args[2], Double.parseDouble(args[3])); System.out.println("Grade added"); }, () -> System.out.println("Student not found"));
+                    // persist change
+                    fh.saveToFile(dataFile, gm.getStudents());
                     return;
                 case "save":
                     fh.saveToFile(dataFile, gm.getStudents());
@@ -54,6 +67,13 @@ public class Main {
                     return;
                 case "help":
                     printHelp();
+                    return;
+                case "transcript":
+                    if (args.length < 2) { System.err.println("Usage: transcript <id>"); System.exit(2); }
+                    gm.findById(args[1]).ifPresentOrElse(st -> System.out.println(st.calculateGPA() + " | Grades: " + st.getGrades()), () -> System.out.println("Not found"));
+                    return;
+                case "class-report":
+                    System.out.println(gm.generateReport());
                     return;
                 default:
                     System.err.println("Unknown command");
