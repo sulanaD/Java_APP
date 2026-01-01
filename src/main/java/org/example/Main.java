@@ -1,8 +1,17 @@
 package org.example;
 
+import org.example.cli.AddGradeCommand;
+import org.example.cli.CLIHandler;
+import org.example.cli.ListStudentsCommand;
+import org.example.cli.AddStudentCommand;
+import org.example.cli.RemoveStudentCommand;
+import org.example.cli.TranscriptCommand;
 import org.example.io.FileHandler;
 import org.example.manager.GradeManager;
 import org.example.model.Student;
+import org.example.repo.GradeRepository;
+import org.example.repo.JsonPersistenceAdapter;
+import org.example.service.GradeService;
 
 import java.io.File;
 import java.util.List;
@@ -14,24 +23,37 @@ public class Main {
     public static void main(String[] args) throws Exception {
         GradeManager gm = new GradeManager();
         FileHandler fh = new FileHandler();
+        GradeRepository repo = new GradeRepository(new JsonPersistenceAdapter(fh));
+        GradeService gs = new GradeService(repo);
         File dataFile = new File(DEFAULT_FILE);
 
-        // load
-        List<Student> loaded = fh.loadFromFile(dataFile);
-        loaded.forEach(gm::addStudent);
+        // load via repository
+        repo.load(dataFile);
 
         // if empty add demo
-        if (gm.getStudents().isEmpty()) {
-            gm.addStudent(new Student("S1", "Alice Smith"));
-            gm.addStudent(new Student("S2", "Bob Johnson"));
+        if (repo.findAll().isEmpty()) {
+            repo.add(new Student("S1", "Alice Smith"));
+            repo.add(new Student("S2", "Bob Johnson"));
         }
 
+        // register CLI commands
+        CLIHandler cli = new CLIHandler();
+        cli.register("list", new ListStudentsCommand(gs));
+        cli.register("add-grade", new AddGradeCommand(gs));
+        cli.register("add-student", new AddStudentCommand(gs));
+        cli.register("remove-student", new RemoveStudentCommand(gs));
+        cli.register("transcript", new TranscriptCommand(gs));
+        cli.register("class-report", args1 -> System.out.println(gs.classReport()));
+        // keep backward compatibility: provide simple save/load commands
+        cli.register("save", args1 -> { try { repo.save(dataFile); System.out.println("Saved"); } catch (Exception e) { System.out.println("Failed to save: " + e.getMessage()); } });
+        cli.register("load", args1 -> { try { repo.load(dataFile); System.out.println("Loaded"); } catch (Exception e) { System.out.println("Failed to load: " + e.getMessage()); } });
+
         if (args != null && args.length > 0) {
-            // non-interactive commands remain supported
+            // existing non-interactive commands preserved
             String cmd = args[0];
             switch (cmd) {
                 case "list":
-                    gm.getStudents().forEach(s -> System.out.println(s));
+                    repo.findAll().forEach(s -> System.out.println(s));
                     return;
                 case "remove-student":
                     if (args.length < 2) { System.err.println("Usage: remove-student <id>"); System.exit(2); }
@@ -82,69 +104,12 @@ public class Main {
             }
         }
 
-        // interactive loop - will continue until exit chosen
-        System.out.println("Simple Student & Grade Manager (CLI)");
-        Scanner sc = new Scanner(System.in);
-        boolean running = true;
-        while (running) {
-            System.out.println();
-            System.out.println("Choose an option:");
-            System.out.println("  1) List students");
-            System.out.println("  2) Add student");
-            System.out.println("  3) Remove student");
-            System.out.println("  4) Add grade to student");
-            System.out.println("  5) Student transcript (GPA and grades)");
-            System.out.println("  6) Class report (all students)");
-            System.out.println("  7) Save to file");
-            System.out.println("  8) Load from file");
-            System.out.println("  9) Exit (save and quit)");
-            System.out.print("Enter choice (1-9): ");
-            String cmd = sc.nextLine().trim();
-            switch (cmd) {
-                case "1":
-                    gm.getStudents().forEach(s -> System.out.println(s));
-                    break;
-                case "2":
-                    System.out.print("Student ID: "); String id = sc.nextLine().trim();
-                    System.out.print("Name: "); String name = sc.nextLine().trim();
-                    gm.addStudent(new Student(id, name));
-                    System.out.println("Added");
-                    break;
-                case "3":
-                    System.out.print("Student ID to remove: "); String rid = sc.nextLine().trim();
-                    System.out.println(gm.removeStudent(rid)?"Removed":"Not found");
-                    break;
-                case "4":
-                    System.out.print("Student ID: "); String sid = sc.nextLine().trim();
-                    System.out.print("Subject: "); String subj = sc.nextLine().trim();
-                    System.out.print("Grade: "); double gr = Double.parseDouble(sc.nextLine().trim());
-                    gm.findById(sid).ifPresentOrElse(st -> { st.addGrade(subj, gr); System.out.println("Added"); }, () -> System.out.println("Not found"));
-                    break;
-                case "5":
-                    System.out.print("Student ID: "); String tsid = sc.nextLine().trim();
-                    gm.findById(tsid).ifPresentOrElse(st -> System.out.println(st.calculateGPA() + " | Grades: " + st.getGrades()), () -> System.out.println("Not found"));
-                    break;
-                case "6":
-                    System.out.println(gm.generateReport());
-                    break;
-                case "7":
-                    fh.saveToFile(dataFile, gm.getStudents());
-                    System.out.println("Saved");
-                    break;
-                case "8":
-                    List<Student> arr = fh.loadFromFile(dataFile);
-                    arr.forEach(gm::addStudent);
-                    System.out.println("Loaded");
-                    break;
-                case "9":
-                    fh.saveToFile(dataFile, gm.getStudents());
-                    System.out.println("Bye");
-                    running = false;
-                    break;
-                default:
-                    System.out.println("Unknown");
-            }
-        }
+        // start CLI interactive mode
+        cli.start();
+
+        // on exit save
+        repo.save(dataFile);
+        System.out.println("Bye");
     }
 
     private static void printHelp() {
