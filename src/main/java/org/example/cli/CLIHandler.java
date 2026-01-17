@@ -44,9 +44,9 @@ public class CLIHandler {
     }
 
     private void printHelp() {
-        System.out.println("Available commands:");
-        commands.forEach((k, v) -> System.out.println("  " + k + " - " + v.getHelp()));
-        System.out.println("  help - show this help");
-        System.out.println("  exit - quit");
+        System.out.println("Available commands:\n");
+        commands.forEach((k, v) -> System.out.println("  " + k + " - " + v.getHelp() + "\n"));
+        System.out.println("  help - show this help\n");
+        System.out.println("  exit - quit\n");
     }
 }

@@ -27,15 +27,38 @@ public class GradeService {
         return true;
     }
 
+    // New: update student name
+    public boolean updateStudent(String id, String newName) {
+        Optional<Student> opt = repository.findById(id);
+        if (opt.isEmpty()) return false;
+        Student s = opt.get();
+        s.setName(newName);
+        return true;
+    }
+
     public boolean removeStudent(String id) { return repository.remove(id); }
     public Optional<Student> findById(String id) { return repository.findById(id); }
 
+    // addGrade already behaves like an upsert for a subject's grade
     public boolean addGrade(String studentId, String subject, double grade) {
         Optional<Student> opt = repository.findById(studentId);
         if (opt.isEmpty()) return false;
         Student s = opt.get();
         s.addGrade(subject, grade);
         return true;
+    }
+
+    // New: update grade (alias to addGrade)
+    public boolean updateGrade(String studentId, String subject, double grade) {
+        return addGrade(studentId, subject, grade);
+    }
+
+    // New: remove a grade for a student
+    public boolean removeGrade(String studentId, String subject) {
+        Optional<Student> opt = repository.findById(studentId);
+        if (opt.isEmpty()) return false;
+        Student s = opt.get();
+        return s.getGrades().remove(subject) != null;
     }
 
     public List<Student> listStudents() { return repository.findAll(); }

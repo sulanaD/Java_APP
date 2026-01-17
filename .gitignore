@@ -1,7 +1,31 @@
-target/
-*.iml
-.vscode/
+# Maven / Java
+/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IntelliJ
 .idea/
+*.iml
+*.iws
+out/
+
+# Eclipse
+/.classpath
+/.project
+/.settings/
+
+# macOS
+.DS_Store
+
+# Logs
 *.log
-students.json
+
+# Generated resources
+src/main/resources/static/
+src/main/resources/templates/
+
+# Misc
+node_modules/
 
