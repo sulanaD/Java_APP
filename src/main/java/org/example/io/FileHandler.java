@@ -22,7 +22,7 @@ public class FileHandler {
         mapper.writerWithDefaultPrettyPrinter().writeValue(f, data);
     }
 
-    public List<Student> loadFromFile(File f) throws IOException {
+    public List<Student> loadFromFile(File f) {
         if (!f.exists()) return new ArrayList<>();
         try {
             CollectionType listType = mapper.getTypeFactory().constructCollectionType(List.class, Student.class);

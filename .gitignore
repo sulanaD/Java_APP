@@ -1,7 +1,16 @@
+# Maven
 target/
-*.iml
-.vscode/
+
+# IDE
 .idea/
+*.iml
+
+# OS
+.DS_Store
+
+# logs
 *.log
+
+# Local data file
 students.json
 

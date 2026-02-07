@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class GradeManager {
     private final List<Student> students = new ArrayList<>();
@@ -49,4 +48,3 @@ public class GradeManager {
         return sb.toString();
     }
 }
-

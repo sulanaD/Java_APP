@@ -1,3 +1,3 @@
 package org.example.model;
 
-// Message model removed - not used in GradeManager CLI app
+// DEPRECATED: Message model not used in the CLI app. Removed to simplify project.

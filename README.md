@@ -12,6 +12,12 @@ Build & run
 - Run (interactive): `java -jar target/programming_Paradigms-1.0-SNAPSHOT-jar-with-dependencies.jar`
 - Run (non-interactive): `java -jar target/programming_Paradigms-1.0-SNAPSHOT-jar-with-dependencies.jar list`
 
-Contributing
-- Create issues, use GitHub Projects for tracking. I can add templates and CI on request.
+I can
+- Add and remove students
+- Add, update, remove grades per student
+- Calculate GPA and print transcripts
+- Persist data to `students.json` (JSON file)
 
+Contributing
+- Create issues, use GitHub Projects for tracking. Issue templates and a CI workflow are included in `.github/`.
+- See `CONTRIBUTING.md` for contribution steps.

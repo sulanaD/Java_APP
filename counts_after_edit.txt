@@ -1,0 +1,2 @@
+PartA words: 1642
+PartB words: 613
