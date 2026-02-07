@@ -6,255 +6,295 @@ Language investigated: Java
 
 ---
 
-This report documents a focused examination of Java (the language used in the supplied Student Grade Management System) and demonstrates the implementation, design rationale and a critique of the sample application in the context of the CSP3341 assignment brief. The document contains two parts: Part A (language description — deep technical discussion) and Part B (application demonstration and evaluation). Diagrams, code samples and a mapping to the assignment rubrics are included.
+This report documents a focused examination of Java (the language used in the Student Grade Management System in this repository) and demonstrates the implementation, design rationale and evaluation of the sample application in the context of the CSP3341 assignment brief. The document contains two parts: Part A (language description — technical discussion) and Part B (application demonstration and evaluation). Diagrams, code samples, test evidence, and a mapping to the assignment rubrics are included.
 
 ---
 
-## Part A — Language Description (approx. 1700 words)
+## Executive summary (short)
 
-This section explains relevant Java features that shaped the design and implementation of the Student Grade Management System. The coverage follows the assignment guidance (naming, data types, control flow, subprograms, ADTs, paradigms, concurrency, exceptions, comparison, and quality attributes).
-
-1. Naming Conventions
-
-- Java follows well-established naming conventions that improve readability and maintainability. Packages use lower-case dot-separated names (e.g., `org.example.service`). Class names use UpperCamelCase (`GradeService`, `GradeManager`). Methods and variables use lowerCamelCase (`addStudent`, `studentId`). Constants are UPPER_SNAKE_CASE (e.g., `DEFAULT_FILE`). The codebase adheres to most of these conventions which simplifies navigation and reduces cognitive load.
-
-2. Data Types
-
-- Java is statically-typed and primarily uses primitive types (int, long, double, boolean, char) alongside reference types (classes, interfaces). The sample code uses `String` and `double` for student IDs, names and grades. Collection types like `List` and `Map` from the Java Collections Framework are used extensively (`List<Student>`, `Map<String, Double>` for grades). Static typing provides early detection of many classes of errors (compile-time), while generics (`List<Student>`) supply type safety for collections.
-
-3. Expressions and Assignment Statements
-
-- Java expressions are familiar (arithmetic, boolean logic, method calls). Assignments use `=` and support compound operators (`+=`, `-=`, etc.). The project uses typical expression forms (e.g., `double avg = grades.values().stream().mapToDouble(Double::doubleValue).average().orElse(Double.NaN);`) — this snippet demonstrates use of the Stream API for concise aggregation.
-
-4. Statement-level Control Structures
-
-- Java supports `if`, `switch`, loops (`for`, `while`, `do-while`) and enhanced `for` loops. The codebase uses `for` and `while` loops (e.g., `Iterator` in `GradeManager.removeStudent`) and `switch` constructs in `Main` to support non-interactive command invocation. The `switch` statement is straightforward for CLI command dispatching. Control structures are explicit and predictable.
-
-5. Subprograms (Methods) and Parameter Passing
-
-- Methods are declared with visibility and possibly `static`. Java uses pass-by-value semantics where references are passed by value. Methods in the code are small and focused: `GradeService.addStudent`, `Student.calculateGPA`, `FileHandler.loadFromFile`. Clear single-responsibility methods improve testability.
-
-6. Abstract Data Types and Encapsulation
-
-- Java promotes encapsulation through `private` fields and public getters/setters. The `Student` model hides the grades map behind an accessor and exposes `addGrade` and `calculateGPA` operations — this represents an ADT for the student entity. `GradeRepository` encapsulates persistence and in-memory storage. Encapsulation reduces coupling and isolates implementation changes.
-
-7. Support for Programming Paradigms
-
-- Java is primarily object-oriented: classes, inheritance, interfaces (e.g., `Command`, `PersistenceAdapter`). The repository uses interfaces for adapters, enabling dependency inversion. The code also uses functional features added in Java 8 (lambdas and streams). For example, `cli.register("class-report", args1 -> System.out.println(gs.classReport()));` shows using a lambda as a command implementation, combining OOP structure with lightweight functional expressions.
-
-8. Concurrency — Parallel Processing
-
-- Core Java concurrency constructs include `Thread`, `synchronized`, `ExecutorService` and `CompletableFuture`. The sample application is single-threaded (CLI-driven), which is appropriate for its scope. Where concurrency might be useful (e.g., background saves, bulk imports), Java provides robust APIs. A future enhancement could use `ExecutorService` for asynchronous save/load to avoid blocking the CLI.
-
-9. Exception Handling and Event Handling
-
-- Java uses `try/catch/finally` and checked exceptions for APIs (like `IOException`). The repository and file handling code handle IO exceptions and degrade gracefully (printing warnings and returning empty lists). Event handling in GUI contexts is less relevant here; instead, the CLI dispatch pattern (`Command` interface) functions as an event-like command dispatch mechanism.
-
-10. Comparison with Similar Languages
-
-- Compared to C++: Java is memory-managed (garbage-collected) and has a simpler type system (no header/source split), which eases portability but may be less performant for low-level tasks.
-- Compared to Ruby: Ruby is dynamic and more concise but lacks compile-time type checking. Java has more boilerplate but stronger tooling (IDE, static analysis) and better performance characteristics in many cases.
-- Compared to Swift: Swift offers modern language ergonomics and safety features (optionals), while Java offers wider cross-platform support and a mature ecosystem for server and CLI tooling.
-
-11. Readability, Writability, Performance
-
-- Readability: Java is verbose but explicit — good for large teams. The codebase follows clear package and class separation and uses meaningful names which improves readability.
-- Writability: Boilerplate (getters/setters) hampers quick scripting, but modern Java (records, lambdas) mitigates this.
-- Performance: Java's JVM provides JIT optimizations; for an I/O-heavy CLI app, performance isn't a limiting factor.
-
-12. Conclusions (Part A)
-
-- Java is well-suited for building maintainable CLI tools and small desktop/server utilities. Its static typing, strong tooling, and extensive libraries support robust implementations. The project demonstrates idiomatic Java practices: clear separation of concerns (models, services, persistence, CLI), use of interfaces, and defensive exception handling.
+I implemented a CLI-based Student Grade Management System in Java that supports full CRUD for students and grades, GPA calculation and persistence to a JSON file. The app includes an interactive CLI and non-interactive command mode; unit tests exercise core CRUD and persistence behavior; CI and issue templates were added to the repo. This submission maps each deliverable to the CSP3341 rubric and includes design rationale and recommended future work.
 
 ---
 
-## Part B — Software application and demonstration (approx. 500 words)
+## Part A — Language description (detailed; target ~1700 words)
 
-This section documents the Student Grade Management System implemented in this repository, shows code excerpts and diagrams, and evaluates two good and two not-so-good aspects of Java observed while developing this sample.
+This section expands on Java's language features and explains how those features influenced the system's design and implementation. The content follows the specified topics in the assignment brief and includes concrete examples from the code base.
 
-1. Application overview and functionality
+1. Naming Conventions (approx. 150–200 words)
 
-The application is a CLI-driven Student Grade Management System with these features:
-- Add, update, delete and list students.
-- Assign grades per student per subject.
-- Calculate student GPA via a simple grade-to-GPA mapping (implemented in `Student.calculateGPA`).
-- Persistence via JSON files (`students.json`) using a `FileHandler` with Jackson; `GradeRepository` delegates to a `PersistenceAdapter` (`JsonPersistenceAdapter`) that uses `FileHandler`.
-- Interactive CLI with commands (`CLIHandler`) and `Command` implementations for `add-student`, `add-grade`, `remove-student`, `transcript`, `class-report`, `save`, and `load`.
+Java's conventions are a practical standard that improves readability across large projects. Package names are in all-lowercase and commonly use reversed domain names (for example `org.example.cli`). Class and interface names use UpperCamelCase (`GradeService`, `CLIHandler`, `PersistenceAdapter`). Methods and fields use lowerCamelCase (`addStudent`, `calculateGPA`, `students`). Constants use UPPER_SNAKE_CASE (`DEFAULT_FILE`). These conventions are enforced by most Java style guides and supported by IDEs (IntelliJ, Eclipse) which can automatically refactor and rename symbols consistently. In the project, following these conventions makes public APIs self-documenting: `GradeRepository.load(File)` clearly communicates intent and matches other repository methods like `save(File)` and `findById(String)`.
 
-A non-interactive mode exists where commands can be run via CLI arguments (see `Main.main`).
+Adhering to conventions also reduces friction when adding automated tools such as Checkstyle, SpotBugs or formatter plugins. For example, if we introduce a code formatting step, uniform naming avoids noisy diffs and supports automatic code reviews.
 
-2. Class diagram (Mermaid)
+2. Data Types (approx. 200–250 words)
+
+Java distinguishes primitive types (int, long, double, boolean, char) from reference types (objects). For this application:
+- Student ID and names are `String` (immutable, reference type).
+- Grades are modelled as `double` to allow fractional scores.
+- Collections are implemented with `List<Student>` and `Map<String, Double>` (the latter maps subject names to numeric grades).
+
+The static type system enforces contracts at compile time. For example, `GradeRepository.findById(String)` returns `Optional<Student>`, making the possibility of absence explicit and reducing null pointer risks. Generics (`List<Student>`) prevent accidental insertion of wrong types. The use of immutable keys (String) and defensive copying (returning a new ArrayList from `findAll()`) prevents accidental sharing of internal state.
+
+Trade-offs: doubles are convenient but floating-point rounding can be surprising; when high-precision or currency-like semantics are needed, `BigDecimal` would be preferable. For student IDs that have structure (e.g., alphanumeric patterns), a dedicated ID type or validation rules would increase robustness.
+
+3. Expressions and Assignment Statements (approx. 150 words)
+
+Java's expression syntax is familiar to programmers of C-like languages. Operators, method calls and expressions are straightforward. Modern Java adds concise expressions via lambdas and method references; for example, computing an average uses:
+
+```java
+double avg = student.getGrades().values().stream()
+                  .mapToDouble(Double::doubleValue)
+                  .average().orElse(Double.NaN);
+```
+
+This expression shows composition of streaming operations and an `OptionalDouble` handling idiom. Compound assignment and short-circuit logical operators (`&&`, `||`) are used for guards in validation logic.
+
+4. Statement-Level Control Structures (approx. 120–150 words)
+
+The project uses `if`/`else` for guards and `switch` for high-level CLI command dispatch. Iteration over collections uses enhanced `for` and Streams where appropriate. Error handling often uses `try/catch` blocks at I/O boundaries (the FileHandler wraps Jackson calls and prints warnings rather than failing the whole program). Control structures are used to keep the CLI responsive and easy to follow; for instance, the interactive loop in `CLIHandler` uses `while (true)` with explicit break conditions on `exit` or EOF.
+
+5. Subprograms (Methods) and Modularity (approx. 150–200 words)
+
+Java methods are explicit contracts: they declare parameter and return types and can throw checked exceptions. This project favors small methods that do one thing (SRP). Examples:
+- `Student.addGrade(String subject, double grade)` — a single mutator.
+- `GradeService.addStudent(Student s)` — validates via `GradeValidator` then delegates to repository.
+
+Designing small methods simplifies unit testing and encourages reuse. We also use a service layer (`GradeService`) to centralize business rules (validation, composite operations) separate from persistence (`GradeRepository`) and presentation (`CLIHandler`). This separation supports automated tests that exercise the business logic without needing file IO.
+
+6. Abstract Data Types and Encapsulation (approx. 150–200 words)
+
+Encapsulation protects invariants. `Student` keeps a `Map<String, Double> grades` private and exposes `addGrade` and `getGrades()`; `getGrades()` returns either an unmodifiable view or a defensive copy to avoid external mutation. The repository pattern (`GradeRepository`) hides storage; it presents methods like `add`, `remove`, `findById`, `findAll`, `load`, and `save` and delegates actual file IO to a `PersistenceAdapter` interface. This adapter-based design is an example of the Dependency Inversion Principle (high-level modules depend on abstractions). It allowed writing `GradeServiceCrudTest` against the JSON adapter while keeping the possibility of a database-backed adapter open.
+
+7. Support for programming paradigms (OOP / functional / structured) (approx. 150–200 words)
+
+Java supports multiple paradigms. The project is designed in an OOP style with classes and interfaces. However, Java's functional additions (streams, lambdas, method references) are used for concise data processing (e.g., report generation and GPA calculation). Methods like `GradeService.classReport()` use stream pipelines to transform collections to formatted strings.
+
+Structured programming appears in the command-dispatch logic (procedural flows in `Main`) which is simple and straightforward. The hybrid approach—OOP for structure and functional idioms for processing—keeps code readable and maintainable.
+
+8. Concurrency — Parallel processing (approx. 160 words)
+
+Concurrency is not required for a single-user CLI tool, but Java provides robust APIs if needed. For this project, the simplest improvement would be asynchronous persistence: when a mutating CLI command occurs, the application could submit a save task to an `ExecutorService`, allowing the prompt to return immediately and preventing the CLI from blocking on disk operations. Care must be taken to handle concurrent modifications (synchronization or copy-on-write) and to ensure consistent shutdown (flush and `shutdown()` the executor on exit).
+
+A more advanced use (not implemented here) would be periodic autosave with debouncing: group multiple rapid mutations into a single save to reduce IO churn.
+
+9. Exception handling and event handling (approx. 160 words)
+
+The project uses try/catch around IO boundaries. The `FileHandler` catches Jackson parsing exceptions and returns an empty list while logging a warning. This design keeps the CLI usable for the user even if the data file is corrupted or missing. Checked exceptions force the developer to acknowledge potential failures; however, excessive use of checked exceptions can make APIs heavier. Java also allows unchecked exceptions for programmer errors.
+
+Event handling in the CLI is implemented through the `Command` interface: commands encapsulate behavior and the `CLIHandler` acts as an invoker. This pattern is simple and appropriate for a REPL; for GUI apps or larger systems a publish/subscribe or observer pattern would be more appropriate.
+
+10. Further language features and advanced topics (new section - approx. 350 words)
+
+Generics, type safety and type erasure
+
+Java's generics provide compile-time type safety for collections and APIs (e.g., `List<Student>`). Generics reduce the need for casts and improve API clarity. However, Java's generics are implemented via type erasure: generic type parameters are removed at runtime which limits certain reflection-based operations and makes it impossible to directly create arrays of parameterized types. In practice this means API designers should carefully consider whether `Class<T>` tokens or other patterns are needed when runtime typing information is required.
+
+Memory model and garbage collection
+
+Java's memory model and automatic garbage collection relieve the developer from manual memory management, reducing a large class of errors (use-after-free, double free). The JVM offers several garbage collectors (G1, ZGC, Shenandoah) with different performance trade-offs. For this CLI application default GC settings are fine; for long-running or high-memory services GC tuning and monitoring (using `jstat`, `jmap`, and `jvisualvm`) would be required. Understanding how object allocation, escape analysis, and short-lived objects affect GC behavior helps optimize hot paths when scaling.
+
+Annotations and reflection
+
+Java's annotation system enables metadata-driven programming (e.g., `@Override`, dependency injection frameworks, or Jackson annotations `@JsonProperty`). Reflection allows runtime inspection and dynamic invocation, used cautiously due to performance and safety implications. In this project, Jackson uses annotations optionally on model classes to control serialization.
+
+Tooling, build and dependency management
+
+Java benefits from mature tooling: IDEs (IntelliJ, Eclipse) provide refactoring, code analysis, and test runners. Build tools (Maven, Gradle) manage dependencies and lifecycle. This project uses Maven (`pom.xml`) to declare dependencies (Jackson, test libraries), run builds, and execute tests. The presence of standard conventions (src/main/java, src/test/java) allows CI integration (GitHub Actions) with minimal configuration.
+
+Testing and debugging
+
+Java's testing ecosystem (JUnit, AssertJ, Mockito) supports unit and integration testing. The project adds `GradeServiceCrudTest` to validate business logic and persistence. Debugging tools (IDE debuggers, `jdb`, and logging libraries) are useful for tracing issues. Test-driven design helps catch edge cases early, and using temporary files in tests ensures no side-effects on developer machines.
+
+11. Comparison with similar languages (approx. 200 words)
+
+C++: C++ provides fine-grained control over memory and often better raw performance for CPU- or memory-bound workloads. However, C++ requires careful management of resources and tends to have longer build cycles. For this assignment, Java's managed memory and cross-platform JVM simplify deployment and reduce low-level bugs.
+
+Ruby: Ruby is highly expressive and concise, leading to faster prototyping. However, it lacks compile-time type checking, which can make refactoring riskier for larger codebases. Java's static typing and IDE tooling aided maintainability for this project.
+
+Swift: Swift combines modern syntax and safety features (optionals), offering expressive constructs and memory safety. Java's ecosystem is more mature for server and CLI tooling, and the JVM supports a wide range of platforms and production deployment scenarios.
+
+12. Readability, Writability, Performance (approx. 140–160 words)
+
+Readability: Java's explicitness and conventional structure enhance readability for teams. The project's package layout (model, repo, service, cli, io) follows separation of concerns and makes navigation easy.
+
+Writability: Java has some verbosity; small classes and explicit getters/setters generate boilerplate. Modern Java features (records, var) and libraries (Lombok) can help reduce noise.
+
+Performance: For this CLI app, performance is dominated by disk IO (JSON serialization with Jackson). The JVM provides good runtime performance; for large-scale data, migrating to a database or using batching/asynchronous IO would be advised.
+
+13. Conclusions (Part A) (approx. 70–100 words)
+
+Java provided a productive environment for building a maintainable CLI tool. Its static typing, mature libraries and IDE support reduced development friction. The language's verbosity and the simplicity of initial CLI parsing are modest drawbacks that are mitigated by adopting libraries (e.g., PicoCLI) or modern language features. Overall Java was a pragmatic choice for the assignment requirements.
+
+---
+
+## Part B — Software application and demonstration (detailed; target ~500 words)
+
+This section demonstrates the implemented Student Grade Management System and evaluates two positive and two negative aspects of Java discovered while developing the project. It also includes usage examples, test evidence and mapping back to the rubric.
+
+1. Functional overview and user workflows (approx. 140–160 words)
+
+The application supports both an interactive REPL and non-interactive one-shot commands. At startup, `Main` attempts to load `students.json` via `GradeRepository`. Commands include:
+- `add-student <id> <name>` — creates and persists a new student.
+- `add-grade <id> <subject> <grade>` — attaches or updates a subject grade.
+- `update-student <id> <newName>` — edits a student's name.
+- `remove-student <id>` and `remove-grade <id> <subject>` — delete operations.
+- `transcript <id>` and `class-report` — reporting and aggregation.
+
+Typical interactive flow: user runs the jar, then issues `help` to see commands, then `add-student` and `add-grade`; the CLI persists changes after mutating commands so exiting and restarting the program retains state.
+
+2. Design and class responsibilities (approx. 120–140 words)
+
+Responsibilities are separated:
+- `CLIHandler` handles input and dispatch.
+- Concrete `Command` classes parse arguments and call `GradeService`.
+- `GradeService` holds business logic and validation (uses `GradeValidator`).
+- `GradeRepository` stores students in memory and delegates persistence to `PersistenceAdapter`.
+- `JsonPersistenceAdapter` uses `FileHandler` (Jackson) for JSON read/write operations.
+
+This layering makes unit testing straightforward: the service layer can be tested independently using temporary files or in-memory adapters. The new `GradeServiceCrudTest` verifies the full create-read-update-delete cycle and the persistence round-trip using a temporary file.
+
+3. Class diagram (Mermaid) — compatible and more detailed
+
+I replaced earlier syntax with a conservative, widely-supported Mermaid representation that avoids advanced constructs known to produce parser errors in some Mermaid versions. The diagram below includes class names, selected methods and relationships; it should render in standard Mermaid viewers.
 
 ```mermaid
 classDiagram
     class Main {
-        +main(String[] args)
+        +main(args)
+        -DEFAULT_FILE: String
     }
     class CLIHandler {
         +start()
         +register(name, Command)
     }
-    interface Command {
-        +execute(String[] args)
-        +getHelp(): String
+    class Command {
+        <<interface>>
+        +execute(args)
     }
     class AddStudentCommand
     class AddGradeCommand
-    class RemoveStudentCommand
+    class UpdateGradeCommand
+    class RemoveGradeCommand
+    class UpdateStudentCommand
+    class ListStudentsCommand
     class TranscriptCommand
-
     class GradeService {
-        +addStudent(Student): boolean
-        +addGrade(id, subject, grade): boolean
-        +listStudents(): List~Student~
-        +load(File)
-        +save(File)
+        +addStudent(s)
+        +addGrade(id,sub,g)
+        +updateStudent(id,name)
+        +removeStudent(id)
     }
     class GradeRepository {
-        +load(File)
-        +save(File)
-        +add(Student)
-        +remove(id): boolean
-        +findById(id): Optional~Student~
-        +findAll(): List~Student~
-    }
-    interface PersistenceAdapter {
-        +loadAll(File): List~Student~
-        +saveAll(File, List~Student~)
+        +add(s)
+        +remove(id)
+        +findById(id)
+        +findAll()
+        +load(file)
+        +save(file)
     }
     class JsonPersistenceAdapter
     class FileHandler
-    class GradeManager
     class Student {
         -studentId: String
         -name: String
-        -grades: Map~String,double~
-        +addGrade(subject, grade)
+        -grades: Map
+        +addGrade(subject,grade)
         +calculateGPA(): double
     }
 
-    Main --> CLIHandler : creates
-    CLIHandler ..> Command : dispatches
+    Main --> CLIHandler
+    CLIHandler ..> Command
     Command <|-- AddStudentCommand
     Command <|-- AddGradeCommand
-    Command <|-- RemoveStudentCommand
+    Command <|-- UpdateGradeCommand
+    Command <|-- RemoveGradeCommand
+    Command <|-- UpdateStudentCommand
+    Command <|-- ListStudentsCommand
     Command <|-- TranscriptCommand
     GradeService --> GradeRepository
-    GradeRepository ..> PersistenceAdapter
-    PersistenceAdapter <|-- JsonPersistenceAdapter
+    GradeRepository ..> JsonPersistenceAdapter
     JsonPersistenceAdapter --> FileHandler
-    GradeManager --> Student
-    GradeService ..> GradeManager
+    GradeService --> Student
 ```
 
-3. Example code excerpts (key snippets)
+4. Tests, validation and evidence (approx. 80–100 words)
 
-- Student model (core behavior: add grade and GPA calculation):
+Automated tests were added to verify core behavior. `GradeServiceCrudTest` creates a temp JSON file and exercises: add student, persist, reload, add grade, update and remove grade, update student name, and delete student. Tests passed locally (`mvn test`). CI was configured (GitHub Actions) to run tests on push/PR. The tests serve as evidence that the main functional requirements (CRUD, persistence, reporting) are met.
 
-```java
-public class Student {
-    private String studentId;
-    private String name;
-    private Map<String, Double> grades = new HashMap<>();
+5. Two good aspects of Java (concrete and tied to code)
 
-    public void addGrade(String subject, double grade) { grades.put(subject, grade); }
+A. Interfaces and modularity — The `PersistenceAdapter` abstraction allowed the repository to remain agnostic about storage details. This facilitated unit tests and makes future storage changes (SQLite, CSV) low-cost.
 
-    public double calculateGPA() {
-        if (grades.isEmpty()) return Double.NaN;
-        double avg = grades.values().stream().mapToDouble(Double::doubleValue).average().orElse(Double.NaN);
-        if (Double.isNaN(avg)) return Double.NaN;
-        if (avg >= 90) return 4.0; if (avg >= 80) return 3.0;
-        if (avg >= 70) return 2.0; if (avg >= 60) return 1.0; return 0.0;
-    }
-}
-```
+B. Mature libraries — Jackson provided robust JSON serialization/deserialization with minimal boilerplate. The `FileHandler` uses `ObjectMapper` and tolerates unknown fields, improving forward/backward compatibility.
 
-- Persistence adapter and file handler integration (shows separation of concerns):
+6. Two not-so-good aspects and mitigations
 
-```java
-public interface PersistenceAdapter {
-    List<Student> loadAll(File f) throws IOException;
-    void saveAll(File f, List<Student> data) throws IOException;
-}
+A. Boilerplate and verbosity — Java requires explicit definitions for many small classes. Mitigation: use modern Java features (records) or small frameworks (Lombok) where appropriate, or collapse trivial command classes into concise lambdas when acceptable.
 
-public class JsonPersistenceAdapter implements PersistenceAdapter {
-    private final FileHandler fh;
-    public JsonPersistenceAdapter(FileHandler fh) { this.fh = fh; }
-    @Override public List<Student> loadAll(File f) throws IOException { return fh.loadFromFile(f); }
-    @Override public void saveAll(File f, List<Student> data) throws IOException { fh.saveToFile(f, data); }
-}
-```
-
-4. Two good aspects of Java (demonstrated in the project)
-
-- Strong typing and explicit interfaces: Interfaces like `PersistenceAdapter` make it straightforward to swap implementations (e.g., JSON, a future SQLite adapter or in-memory mock for tests). This contributes to testability and modular design.
-  - Example: `GradeRepository` receives a `PersistenceAdapter` and is agnostic to the underlying storage format.
-
-- Rich standard library + ecosystem: The Jackson library is used via `FileHandler` to serialize/deserialize JSON with a few lines of code. Java's ecosystem reduces boilerplate for common tasks (I/O, JSON parsing).
-  - Example: `ObjectMapper` usage in `FileHandler`.
-
-5. Two not-so-good aspects observed (and mitigations)
-
-- Verbosity (boilerplate): Java requires explicit classes and methods (getters/setters). In this small project a few classes are thin (e.g., some repo interfaces), which introduces cognitive overhead. Mitigation: use modern features (records for DTOs), Lombok (if allowed), or keep modules concise.
-
-- No built-in lightweight CLI framework: The project uses a small custom `CLIHandler`, which is simple and fine, but a more feature-rich CLI (argument parsing, help formatting) would benefit from libraries like PicoCLI for larger CLI tools.
-
-6. Demonstration evidence and screenshots
-
-- The app's interactive run prints a prompt and supports `help`, `add-student`, `add-grade`, `list`, `transcript`, `class-report`, `save`, and `load`. The `Main.main` also supports non-interactive one-shot commands for scripting.
-
-7. Rubric mapping (how the submission meets requirements)
-
-- Part A: All listed language topics are covered in this document (naming, data types, control structures, subprograms, ADTs, OOP/functional support, concurrency, exceptions, comparison, readability/writability/performance, conclusions).
-- Part B: Demonstration of code (class diagram, snippets), two good and two bad aspects clearly explained with code references.
+B. CLI parsing ergonomics — Current whitespace splitting requires quoting for multi-word names. Mitigation: integrate PicoCLI to provide built-in parsing, validations, auto-generated help, and parameter conversion.
 
 ---
 
-## Appendices
+## Mapping to CSP3341 rubric and final checklist
+
+- Part A: Coverage of naming conventions, data types, expressions, control structures, subprograms, ADTs, paradigms, concurrency, exceptions, comparison and performance. (All covered, see Part A sections.)
+- Part B: Demonstration of functionality (CRUD, grades, GPA, persistence), class diagram, and unit test evidence. (All implemented; see Part B sections and test `GradeServiceCrudTest`.)
+- Illustrative examples: Short code excerpts and a class diagram are included. Larger code listings are in the `src/` directory and appendices.
+- Professionalism: README, CONTRIBUTING, CI workflow and issue templates were added to support project management and submission.
+
+---
+
+## Appendices and build instructions
 
 A. Files referenced (most relevant)
-- src/main/java/org/example/model/Student.java
-- src/main/java/org/example/manager/GradeManager.java
-- src/main/java/org/example/service/GradeService.java
-- src/main/java/org/example/repo/GradeRepository.java
-- src/main/java/org/example/repo/PersistenceAdapter.java
-- src/main/java/org/example/repo/JsonPersistenceAdapter.java
-- src/main/java/org/example/io/FileHandler.java
-- src/main/java/org/example/cli/CLIHandler.java
-- src/main/java/org/example/Main.java
+- `src/main/java/org/example/model/Student.java`
+- `src/main/java/org/example/manager/GradeManager.java`
+- `src/main/java/org/example/service/GradeService.java`
+- `src/main/java/org/example/repo/GradeRepository.java`
+- `src/main/java/org/example/repo/PersistenceAdapter.java`
+- `src/main/java/org/example/repo/JsonPersistenceAdapter.java`
+- `src/main/java/org/example/io/FileHandler.java`
+- `src/main/java/org/example/cli/CLIHandler.java`
+- `src/main/java/org/example/Main.java`
 
-B. Suggested code improvements (to align the project with rubric and production best-practices)
-1. Remove dead/legacy files and placeholders: `src/main/java/org/example/service/StudentService.java` (currently marked "removed - use GradeManager instead"), `src/main/java/org/example/repo/StudentRepo.java`, `InMemoryStudentRepo.java`, `InMemoryMessageRepo.java`, `MessageRepo.java` if they are not used. Cleaning reduces noise for graders.
-2. Add unit tests for core logic: `Student.calculateGPA`, `GradeRepository` persistence round-trip, `GradeService` validation paths. There are some tests in `test/` already — expand to cover edge cases.
-3. Improve CLI help/menu: ensure the interactive menu prints options with separating blank lines and insists on waiting until `exit` or `quit` is given; e.g., `CLIHandler.printHelp` can be changed to put a blank line between items for readability.
-4. Add input validation and robust error messages: JSON parsing already degrades gracefully; ensure add-student rejects blank ids/names and that `add-grade` validates grade ranges.
-5. Consider asynchronous persistence: use `ExecutorService` to persist data on a separate thread to keep the CLI responsive.
-
-C. Build and run instructions (short)
-
-- Build and run (requires Maven and JDK):
+B. Build & run (concise)
 
 ```bash
-# build
+# Build (requires Maven and JDK 17)
 mvn -DskipTests package
-# run interactive
+
+# Run interactive
 java -jar target/programming_Paradigms-1.0-SNAPSHOT-jar-with-dependencies.jar
 ```
 
-D. References
-- Oracle Java SE documentation (https://docs.oracle.com/en/java/)
-- Jackson JSON Processor (https://github.com/FasterXML/jackson)
-- PicoCLI (for CLI enhancements) (https://picocli.info/)
+C. Test summary
+
+- Run tests locally:
+
+```bash
+mvn test
+```
+
+D. Suggested further improvements (prioritised)
+1. Adopt PicoCLI for robust parsing, validation and auto-help. (High)
+2. Increase unit test coverage for edge cases (invalid grades, duplicate IDs, large class sizes). (High)
+3. Implement asynchronous persistence with `ExecutorService` to prevent blocking UI. (Medium)
+4. Add an integration test that runs the jar in a temp directory to validate end-to-end workflows. (Medium)
+5. Replace `students.json` with an embedded store (SQLite) if transactional consistency is required. (Low)
 
 ---
 
-## Requirements coverage checklist
-- Part A topics: Done
-- Part B demonstration: Done (class diagram, code excerpts, functionality)
-- Professionalism: Document structured, code referenced, suggested improvements provided — ready for screenshots and final polishing.
+## References
 
+- Oracle Java SE Documentation: https://docs.oracle.com/en/java/
+- Jackson JSON Processor (FasterXML): https://github.com/FasterXML/jackson
+- PicoCLI (CLI parsing and validation): https://picocli.info/
+- Effective Java (Joshua Bloch) — guidance on API design and best practices.
 
 ---
 
-(End of report draft)
+## Final remarks
 
+This document presents a final technical report aligned to the CSP3341 brief. The implementation delivers a maintainable Java CLI application with full CRUD, JSON persistence, unit tests and CI. The report includes expanded language analysis and application demonstration to satisfy the assessment rubric.
+
+(End of final report)

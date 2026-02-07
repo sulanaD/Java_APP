@@ -1,6 +1,5 @@
 package org.example.repo;
 
-// Legacy message repository removed. This stub remains to avoid build issues when old test artifacts reference the file.
-public class InMemoryMessageRepo {
-    // no-op
+// DEPRECATED: InMemoryMessageRepo not used; placeholder kept for compatibility.
+public class InMemoryMessageRepo implements MessageRepo {
 }
